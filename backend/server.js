@@ -3,14 +3,22 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI } from '@google/genai';
 
-// --- Configuração da API ---
+// --- Variáveis de Ambiente e Inicialização ---
 if (!process.env.API_KEY_GEMINI) {
+    // 🛑 CORREÇÃO 1: Não use process.exit() no Serverless. Apenas logamos e lançamos um erro.
     console.error("ERRO: A variável de ambiente API_KEY_GEMINI não está definida.");
-    process.exit(1);
 }
 
-const ai = new GoogleGenAI({
-    apiKey: process.env.API_KEY_GEMINI});
+let ai;
+try {
+    ai = new GoogleGenAI({
+        apiKey: process.env.API_KEY_GEMINI
+    });
+} catch (e) {
+    // Apenas loga o erro, permitindo que as rotas de GET ainda funcionem
+    console.error("Falha ao inicializar o GoogleGenAI:", e.message);
+}
+
 const model = "gemini-2.5-flash";
 
 // Objeto para armazenar as sessões de chat ativas, indexadas pelo sessionId
@@ -18,14 +26,13 @@ const activeGameSessions = new Map();
 
 // --- Configuração do Servidor Express ---
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000; 
 
 app.use(cors()); 
 app.use(express.json()); 
 
 /**
  * Cria ou recupera uma ChatSession para uma partida específica.
- * A systemInstruction é usada para definir a instrução e o formato de resposta da IA.
  */
 function createOrGetChatSession(sessionId, cor_ia) {
     if (activeGameSessions.has(sessionId)) {
@@ -56,18 +63,23 @@ function createOrGetChatSession(sessionId, cor_ia) {
     return newChat;
 }
 
+// --- Rota Raiz (Para evitar 404) ---
 app.get('/', (req, res) => {
     res.status(200).json({ 
         status: "OK", 
-        message: "Chess AI Backend está online!",
-        endpoint_ia: "/api/jogada (POST)"
+        message: `Chess AI Backend (Porta: ${port}) está online!`,
+        endpoint_ia: "/api/jogada-ia (POST)",
+        status_gemini: ai ? "Pronto" : "Erro de Chave API"
     });
 });
 
 
 // --- Rota da IA de Xadrez ---
 app.post('/api/jogada-ia', async (req, res) => {
-    // Agora esperamos um 'sessionId' do front-end
+    if (!ai) {
+        return res.status(500).json({ error: "Erro de Configuração: API_KEY_GEMINI não está definida ou é inválida." });
+    }
+
     const { fen, cor_ia, sessionId } = req.body;
 
     if (!fen || !cor_ia || !sessionId) {
@@ -78,7 +90,7 @@ app.post('/api/jogada-ia', async (req, res) => {
         // 1. Recupera ou cria a sessão de chat (com contexto)
         const chat = createOrGetChatSession(sessionId, cor_ia);
 
-        // 2. A mensagem do usuário é simples, pois a instrução do sistema já guia o formato
+        // 2. A mensagem do usuário
         const prompt = `A posição FEN atual é: ${fen}. Faça a sua jogada.`;
 
         console.log(`ID: ${sessionId} | A calcular jogada para ${cor_ia}...`);
@@ -97,15 +109,18 @@ app.post('/api/jogada-ia', async (req, res) => {
 
     } catch (error) {
         console.error("Erro na chamada à API Gemini:", error);
-        // Em caso de erro, você pode querer remover a sessão para tentar novamente mais tarde.
+        
+        // Em caso de erro, remove a sessão para forçar a criação de uma nova
         activeGameSessions.delete(sessionId);
-        window.alert(error.message)
-        location.reload()
+        
+        return res.status(500).json({ 
+            error: "Erro interno do servidor ao consultar a IA.", 
+            details: error.message 
+        });
     }
 });
 
 // --- Rota para Limpar a Sessão ---
-// Útil para quando a partida termina (xeque-mate, empate)
 app.post('/api/fim-partida', (req, res) => {
     const { sessionId } = req.body;
     if (activeGameSessions.has(sessionId)) {
@@ -117,4 +132,4 @@ app.post('/api/fim-partida', (req, res) => {
 
 
 // --- Iniciar o Servidor ---
-export default app()
+export default app;
