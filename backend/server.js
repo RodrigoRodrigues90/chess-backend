@@ -56,6 +56,14 @@ function createOrGetChatSession(sessionId, cor_ia) {
     return newChat;
 }
 
+app.get('/', (req, res) => {
+    res.status(200).json({ 
+        status: "OK", 
+        message: "Chess AI Backend está online!",
+        endpoint_ia: "/api/jogada (POST)"
+    });
+});
+
 
 // --- Rota da IA de Xadrez ---
 app.post('/api/jogada-ia', async (req, res) => {
