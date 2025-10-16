@@ -109,6 +109,4 @@ app.post('/api/fim-partida', (req, res) => {
 
 
 // --- Iniciar o Servidor ---
-app.listen(port, () => {
-    console.log(`Servidor Express a correr em http://localhost:${port}`);
-});
+export default app()
