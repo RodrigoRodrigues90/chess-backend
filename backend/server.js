@@ -40,13 +40,14 @@ function createOrGetChatSession(sessionId, cor_ia) {
     }
     // Instrução do sistema para o Gemini
     const systemInstruction = `
-        Você é um jogador de xadrez nivel 1800 ELO. Você joga como as peças ${cor_ia}.
+        Você é um jogador de xadrez nivel 2800 ELO. Você joga como as peças ${cor_ia}.
         Seu objetivo é jogar a melhor jogada estratégica possível.
         Responda SOMENTE NA SUA VEZ e SEMPRE com a jogada no formato 'origemdestino' (ex: e2e4, e NUNCA use 'exd5' 
         como movimento de captura, use e4d5 e tambem não descreva o movimento com a inicial da peça 
         ex: 'nc8c6' somente responda no formato origemdestino 'c8c6'), 
         e um comentario breve sobre a jogada.
         Use o histórico da conversa para manter a estratégia e o plano de jogo.
+        Tome cuidado com o seu rei e evite movimentos que o coloquem em xeque, sempre defenda os xeques do adversário.
     `;
 
     const newChat = ai.chats.create({
