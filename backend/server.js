@@ -5,7 +5,6 @@ import { GoogleGenAI } from '@google/genai';
 
 // --- Variáveis de Ambiente e Inicialização ---
 if (!process.env.API_KEY_GEMINI) {
-    // 🛑 CORREÇÃO 1: Não use process.exit() no Serverless. Apenas logamos e lançamos um erro.
     console.error("ERRO: A variável de ambiente API_KEY_GEMINI não está definida.");
 }
 
@@ -54,7 +53,7 @@ function createOrGetChatSession(sessionId, cor_ia) {
         model: model,
         config: {
             systemInstruction: systemInstruction,
-            temperature: 0.1
+            temperature: 0.2
         }
     });
 
@@ -81,7 +80,7 @@ app.post('/api/jogada-ia', async (req, res) => {
         return res.status(500).json({ error: "Erro de Configuração: API_KEY_GEMINI não está definida ou é inválida." });
     }
 
-    const { fen, cor_ia, sessionId } = req.body;
+    const { fen, cor_ia, sessionId, feedBackError } = req.body;
 
     if (!fen || !cor_ia || !sessionId) {
         return res.status(400).json({ error: "FEN, cor_ia e sessionId são obrigatórios." });
@@ -91,10 +90,20 @@ app.post('/api/jogada-ia', async (req, res) => {
         // 1. Recupera ou cria a sessão de chat (com contexto)
         const chat = createOrGetChatSession(sessionId, cor_ia);
 
-        // 2. A mensagem do usuário
-        const prompt = `A posição FEN atual é: ${fen}. Faça a sua jogada.`;
+         // 2. Constrói o prompt
+        let prompt;
+
+        // SE HOUVER FEEDBACK DE ERRO, INCLUI A INSTRUÇÃO DE CORREÇÃO.
+        if (feedBackError) {
+            // Se houver erro, a IA recebe a instrução completa do frontend
+            prompt = feedBackError;
+        } else {
+            // Caso contrário, usa o prompt padrão
+            prompt = `A posição FEN atual é: ${fen}. Faça a sua jogada.`;
+        }
 
         console.log(`ID: ${sessionId} | A calcular jogada para ${cor_ia}...`);
+
 
         // 3. Enviar mensagem para a sessão de chat
         const response = await chat.sendMessage({
